@@ -1,21 +1,21 @@
 
-rm(list=ls(all=TRUE)) # REMOVE ALL PREVIOUS OBJECTS
-options(warn=-1);
-# options(error = recover)
+# ============================
+# EXAMPLE WITH SIMULATED DATA
+# ============================
+
+rm(list=ls(all=TRUE)) 
 source("Functions-IT-Recurrent.r")
 
-set.seed(123)
+set.seed(2024)
 n0 <- 300
 beta <- c(-1, 1, 1, 3);
-dat <- rdat.exponential(n0=n0, beta=beta, c1.cut=0.5,  c2.cut=0.5, 
-                        frailty.dist="lognormal", theta=1, r0=0.25, p0=1/2, 
-                        K0=100, d=4, digits=1, c.censor=5) 
-print(dim(dat)); print(sort(table(dat$IDNUM), decreasing =TRUE))
+dat <- rdat.exponential(n0=n0, beta=beta, frailty.dist="lognormal")
+dim(dat); head(dat)
 penalty <- c(2:4, log(n0), log(NROW(dat)))
-
 split.var <- 7:10; 
-boot.result <- bootstrap.grow.prune(B=30, data=dat, N0=20, n0=5, split.var=split.var, 
-                                    max.depth=5, split.method="lrt", split.strata=FALSE) 
+boot.result <- bootstrap.grow.prune(B=25, data=dat, N0=10, n0=3, 
+    split.var=split.var, max.depth=10, split.method="wald", 
+    split.strata=FALSE) 
 # THE LARGE INITIAL TREE
 tree0 <- boot.result$boot.tree[[1]]; 
 # THE PRUNING RESULTS
@@ -27,14 +27,18 @@ sz <- c(G.a[which.max(G.a[,2]),1], G.a[which.max(G.a[,3]),1],
         G.a[which.max(G.a[,6]), 1])
 print(sz) 
 btree <- obtain.btree(tree0, bsize=sz)
-plot.tree.latex(btree[[4]], file="btree-BIC.tex", 
-                            digits=4,cols.nominal=NULL, landscape=FALSE)
+btree.BIC <- btree[[4]]
 
 
+# PLOT THE FINAL TREE (SELECTED BY BIC)
+plot.tree(btree.BIC, cols.nominal=NULL, 
+          textDepth=5, lines="rectangle", digits=3)
 
-
-
-
+# OBTAIN LATEX PLOT OF THE FINAL TREE 
+plot.tree.latex(btree.BIC, file="btree-BIC.tex", 
+          digits=4, cols.nominal=NULL, landscape=FALSE)
+# TO COMPILTE THE LATEX FILE WITH THE pstricks PACKAGE, 
+# GET dvi USING LATEX; THEN dvips; FINALLY ps2pdf
 
 
 

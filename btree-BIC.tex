@@ -1,0 +1,27 @@
+\documentclass[12pt]{article} 
+\usepackage{pstricks,pst-node,pst-tree,lscape} 
+\usepackage[landscape]{geometry} 
+\pagenumbering{gobble} 
+
+\begin{document} 
+ 
+\begin{figure} 
+\begin{landscape} 
+\centering 
+\newcommand{\Tgcircle}{\Tcircle[linecolor=black, fillcolor=gray]} 
+\newcommand{\Tgoval}{\Toval[linecolor=black, fillcolor=gray]} 
+\newcommand{\Tgframe}[1]{\Tr{\psframebox[linecolor=black, fillstyle=solid, fillcolor=orange]{#1}}} 
+\psset{nodesep=0.7pt, linecolor=black, treesep=1.2cm, levelsep=1.8cm} 
+\pstree{\Tgcircle{~~}} 
+{ 
+        \pstree{\Tgcircle{~~} \tlput{\color{blue}\texttt{X2}\texttt{}$\,\leq\,0.5$\hspace{-.6in}}} 
+        { 
+                \Tgframe{8.9474} \nput{d}{\pssucc}{\color{black} \textbf{104}}\tlput{\color{blue} \texttt{X1}\texttt{}$\,\leq\,0.7$ \hspace{-.3in}} 
+                \Tgframe{0.3923} \nput{d}{\pssucc}{\color{black} \textbf{37}} 
+        }
+        \Tgframe{0.3547} \nput{d}{\pssucc}{\color{black} \textbf{159}} 
+}
+\end{landscape} 
+\end{figure} 
+
+\end{document} 

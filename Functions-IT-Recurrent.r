@@ -1,6 +1,6 @@
 
 # rm(list=ls(all=TRUE)) # REMOVE ALL PREVIOUS OBJECTS
-options(warn=-1);
+options(warn=-1, error=NULL);
 pkgs.needed <- c("survival", "tidyverse", "survminer", "coxme", "ClusterBootstrap", "xtable")
 if (any(!is.element(pkgs.needed, installed.packages()[,1]))) install.packages(pkgs.needed)
 library(survival)
@@ -21,56 +21,57 @@ library(xtable)
 # c.censor = RANGE OF CENSORING TIME UNIFORM(0, c.censor)
 # digits = SIGNIFICANT DIGITS OF ROUNDING, WHICH HELPS REDUCE THE NUMBER OF DISTINCT VALUES OF EACH X
 # rdat.exponential() GENREATES DATA WITH EXPONENTIAL GAP TIMES
-rdat.exponential <- function(n0=200, beta=c(1, 1, 1, 2), 
+rdat.exponential <- function(n0=200, beta=c(-1, -1, 1, 2), 
                              c1.cut=0.5,  c2.cut=0.5,
                              frailty.dist="lognormal", theta=1, 
                              r0=0.25, p0=1/2, 
-                             K0=100, d=4, digits=1, c.censor=2){
-	# GENERATE COVARIATES, TRT
-	X <- matrix(round(runif(n0*d, 0, 1), digits=digits), nrow=n0, ncol=d) # ROUNDING HELPS REDUCE THE NUMBER OF DISTINCT VALUES OF EACH X
-	X <- as.data.frame(X); names(X) <- paste("X", 1:d, sep="") 
-	(runif(n0)<p0) %>% as.numeric() -> trt
-
-	# FRAILTY
-	if (frailty.dist=="lognormal") {
-	  Mu0 <- 0; C.0 <-  theta^2/exp(2*Mu0)
-	  sigma <- sqrt(log((1+sqrt(1+4*C.0))/2))    # TO HAVE SCALE (SD) theta
-	  eta <- rlnorm(n=n0, meanlog = Mu0, sdlog = sigma)
-	} else eta <- rgamma(n0, shape=1/theta, scale= theta)
-	# MODEL 
-  	linear.pred <- beta[1]*trt + beta[2]*sign(X[,1] <= c1.cut) + beta[3]*sign(X[,2] <= c2.cut)  + 
-  	  beta[4]*sign(X[,1] <= c1.cut)*sign(X[,2] <= c2.cut)*trt
-#				beta[4]*sign(X[,1] <= c.cut)*trt + beta[5]*sign(X[,2] <= c.cut)*trt
-
-	lambda <- r0*(exp(linear.pred)*eta)
-
-	# GENERATE SURVIVAL/CENSORING TIME
-	censor.time <- runif(n0, 0, c.censor) 
-	
-	INCREM <- matrix(0, n0, K0+1)
-	for (j in 1:K0)  INCREM[,j+1] <- rexp(n0, rate=lambda)
-	INCREM <- as.data.frame(INCREM); names(INCREM) <- paste("incre", 0:K0, sep="") 
-	dat0 <- as_tibble(cbind(IDNUM=1:n0, trt=trt, X, INCREM, censor.time)) 	
-	dat0 %>%  pivot_longer(
-   			cols = starts_with("incre"),
-   			names_to = "rep",
-   			names_prefix = "incre",
-   			values_to = "time") %>% 
-		group_by(IDNUM) %>% 
-		mutate(rep = lead(rep),
-			start.time=accumulate(time, `+`), 
-			time.stop=lead(start.time), 
-			status=as.numeric(time.stop <= censor.time), 
-			stop.time=pmin(censor.time, time.stop)) %>%
-		na.omit() %>%
-		group_by(IDNUM) %>% 
-		mutate(first= as.numeric(row_number() == min(row_number()[status==0]))) %>% 
-		filter((first + status)!=0) %>%
-		select(-censor.time, -time, -time.stop, -first) %>%
-		select(IDNUM, rep, start.time, stop.time, status, everything()) %>%
-		rename(starttime=start.time, stoptime=stop.time, event=status) %>%
-	  as.data.frame() -> dat 
-	return(dat)
+                             K0=100, d=4, digits=1, c.censor=5)
+  {
+  	# GENERATE COVARIATES, TRT
+  	X <- matrix(round(runif(n0*d, 0, 1), digits=digits), nrow=n0, ncol=d) # ROUNDING HELPS REDUCE THE NUMBER OF DISTINCT VALUES OF EACH X
+  	X <- as.data.frame(X); names(X) <- paste("X", 1:d, sep="") 
+  	(runif(n0)<p0) %>% as.numeric() -> trt
+  
+  	# FRAILTY
+  	if (frailty.dist=="lognormal") {
+  	  Mu0 <- 0; C.0 <-  theta^2/exp(2*Mu0)
+  	  sigma <- sqrt(log((1+sqrt(1+4*C.0))/2))    # TO HAVE SCALE (SD) theta
+  	  eta <- rlnorm(n=n0, meanlog = Mu0, sdlog = sigma)
+  	} else eta <- rgamma(n0, shape=1/theta, scale= theta)
+  	# MODEL 
+    	linear.pred <- beta[1]*trt + beta[2]*sign(X[,1] <= c1.cut) + beta[3]*sign(X[,2] <= c2.cut)  + 
+    	  beta[4]*sign(X[,1] <= c1.cut)*sign(X[,2] <= c2.cut)*trt
+  #				beta[4]*sign(X[,1] <= c.cut)*trt + beta[5]*sign(X[,2] <= c.cut)*trt
+  
+  	lambda <- r0*(exp(linear.pred)*eta)
+  
+  	# GENERATE SURVIVAL/CENSORING TIME
+  	censor.time <- runif(n0, 0, c.censor) 
+  	
+  	INCREM <- matrix(0, n0, K0+1)
+  	for (j in 1:K0)  INCREM[,j+1] <- rexp(n0, rate=lambda)
+  	INCREM <- as.data.frame(INCREM); names(INCREM) <- paste("incre", 0:K0, sep="") 
+  	dat0 <- as_tibble(cbind(IDNUM=1:n0, trt=trt, X, INCREM, censor.time)) 	
+  	dat0 %>%  pivot_longer(
+     			cols = starts_with("incre"),
+     			names_to = "rep",
+     			names_prefix = "incre",
+     			values_to = "time") %>% 
+  		group_by(IDNUM) %>% 
+  		mutate(rep = lead(rep),
+  			start.time=accumulate(time, `+`), 
+  			time.stop=lead(start.time), 
+  			status=as.numeric(time.stop <= censor.time), 
+  			stop.time=pmin(censor.time, time.stop)) %>%
+  		na.omit() %>%
+  		group_by(IDNUM) %>% 
+  		mutate(first= as.numeric(row_number() == min(row_number()[status==0]))) %>% 
+  		filter((first + status)!=0) %>%
+  		select(-censor.time, -time, -time.stop, -first) %>%
+  		select(IDNUM, rep, start.time, stop.time, status, everything()) %>%
+  		rename(starttime=start.time, stoptime=stop.time, event=status) %>%
+  	  as.data.frame() -> dat 
+  	return(dat)
 }
 
 
@@ -238,8 +239,8 @@ split.stat <- function(dat, z, n0=2, method=NULL, strata=FALSE)
 			} else {
 			  fit1 <- coxme(Surv(starttime,stoptime,event)~trt+z+ z:trt+ (1|IDNUM),control=control.0)
 			  fit0 <- coxme(Surv(starttime,stoptime,event)~trt+z+ (1|IDNUM), control=control.0)
-        			#fit1<-coxph(Surv(starttime,stoptime,event)~trt+z+ z:trt+ frailty.gamma(IDNUM),control=control.coxph.0)
-			# fit0 <- coxph(Surv(starttime,stoptime,event)~trt+z+ frailty.gamma(IDNUM),control=control.coxph.0)
+        # fit1 <- coxph(Surv(starttime,stoptime,event)~trt+z+ z:trt+ frailty.gamma(IDNUM),control=control.coxph.0)
+			  # fit0 <- coxph(Surv(starttime,stoptime,event)~trt+z+ frailty.gamma(IDNUM),control=control.coxph.0)
 			}
 			test.stat <- 2*(fit1$loglik[2] - fit0$loglik[2])
 		} else if (method=="score") {
@@ -701,8 +702,9 @@ plot.tree.latex <- function(tree, file="btree.tex",
 # PLOTTING IT TREE STRUCTURE, MODIFIED FROM PETER CALHOUN'S CODES
 # ===================================================================
 
+
 plot.tree <- function(tree, cols.nominal=NULL, 
-                      textDepth=3, lines="rectangle", digits=4)
+	textDepth=3, lines="rectangle", digits=4)
 {
   depth<-max(nchar(tree[,1]))
   par(xaxs='i')
@@ -712,63 +714,66 @@ plot.tree <- function(tree, cols.nominal=NULL,
   nodes <- tree$node
   nodesBin <- gsub("1", "0", nodes)
   nodesBin <- gsub("2", "1", nodesBin)
-  lastObs<-nchar(nodesBin)
-  nodesBin<-substr(nodesBin,2,lastObs)
-  vname <- tree$vname 
-  col.var <- tree$xcol 
+  lastObs <- nchar(nodesBin)
+  nodesBin <- substr(nodesBin,2,lastObs)
+  var <- tree$vname 
+  col.var <- tree$xcol   
   cut <- as.character(tree$cut) 
-  size <- tree$n  
+  size <- tree$size  
   effect <- tree$trt.effect
   
   for(i in 1:length(nodesBin)){
-    nChar<-nchar(nodesBin[i])
-    if(!is.na(vname[i])){
+    nChar <- nchar(nodesBin[i])
+    # print(cbind(i, nChar))
+    if(!is.na(var[i])){
       if(lines=="rectangle"){
-        lines(c((1/(2^(nChar+2)))*(4*strtoi(nodesBin[i], base = 2)+1),
-                (1/(2^(nChar+2)))*(4*strtoi(nodesBin[i], base = 2)+3)),
+        # print(cbind(i, nodesBin[i], strtoi(nodesBin[i])))
+        lines(c((1/(2^(nChar+2)))*(4*strtoi(nodesBin[i+1], base = 2)+1),
+                (1/(2^(nChar+2)))*(4*strtoi(nodesBin[i+1], base = 2)+3)),
               c((depth-nChar)/(depth+1),(depth-nChar)/(depth+1)))
         
-        lines(c((1/(2^(nChar+2)))*(4*strtoi(nodesBin[i], base = 2)+1),
-                (1/(2^(nChar+2)))*(4*strtoi(nodesBin[i], base = 2)+1)),
+        lines(c((1/(2^(nChar+2)))*(4*strtoi(nodesBin[i+1], base = 2)+1),
+                (1/(2^(nChar+2)))*(4*strtoi(nodesBin[i+1], base = 2)+1)),
               c((depth-nChar)/(depth+1),(depth-nChar-1)/(depth+1)))
         
-        lines(c((1/(2^(nChar+2)))*(4*strtoi(nodesBin[i], base = 2)+3),
-                (1/(2^(nChar+2)))*(4*strtoi(nodesBin[i], base = 2)+3)),
+        lines(c((1/(2^(nChar+2)))*(4*strtoi(nodesBin[i+1], base = 2)+3),
+                (1/(2^(nChar+2)))*(4*strtoi(nodesBin[i+1], base = 2)+3)),
               c((depth-nChar)/(depth+1),(depth-nChar-1)/(depth+1)))
-        
       } else if(lines=="triangle"){
-        lines(c((1/(2^(nChar+2)))*(4*strtoi(nodesBin[i], base = 2)+2),
-                (1/(2^(nChar+2)))*(4*strtoi(nodesBin[i], base = 2)+1)),
+        lines(c((1/(2^(nChar+2)))*(4*strtoi(nodesBin[i+1], base = 2)+2),
+                (1/(2^(nChar+2)))*(4*strtoi(nodesBin[i+1], base = 2)+1)),
               c((depth-nChar)/(depth+1),(depth-nChar-1)/(depth+1)))
         
-        lines(c((1/(2^(nChar+2)))*(4*strtoi(nodesBin[i], base = 2)+2),
-                (1/(2^(nChar+2)))*(4*strtoi(nodesBin[i], base = 2)+3)),
+        lines(c((1/(2^(nChar+2)))*(4*strtoi(nodesBin[i+1], base = 2)+2),
+                (1/(2^(nChar+2)))*(4*strtoi(nodesBin[i+1], base = 2)+3)),
               c((depth-nChar)/(depth+1),(depth-nChar-1)/(depth+1)))
       }         
-      
       if(nChar <= textDepth){ 
-        if (is.element(col.var[i], cols.nominal)){
-          cutpoint <- unlist(strsplit(as.character(cut[i]), split=" "))
-          cutpoint <- paste("{", paste(cutpoint, collapse=","), "}", sep="")
-          text((1/(2^(nChar+2)))*(4*strtoi(nodesBin[i], base = 2)+2), (depth-nChar)/(depth+1)+1/(depth+20), 
-               bquote(.(as.character(vname[i]))%in%.(cutpoint)),cex=1, col="blue")
-        } else {
-          cutpoint <- round(as.numeric(cut[i]), digits=digits)
-          text((1/(2^(nChar+2)))*(4*strtoi(nodesBin[i], base = 2)+2), (depth-nChar)/(depth+1)+1/(depth+20), 
-               bquote(.(as.character(vname[i]))<=.(cutpoint)),cex=1, col="blue")
-        }
+    		if (is.element(col.var[i], cols.nominal)){
+    			cutpoint <- unlist(strsplit(as.character(cut[i]), split=" "))
+    			cutpoint <- paste("{", paste(cutpoint, collapse=","), "}", sep="")
+    			text((1/(2^(nChar+2)))*(4*strtoi(nodesBin[i+1], base = 2)+2), 
+    			     (depth-nChar)/(depth+1)+1/(depth+20), 
+    			     bquote(.(as.character(var[i]))%in%.(cutpoint)),cex=1, col="blue")
+    		} else {
+    			cutpoint <- round(as.numeric(cut[i]), digits=digits)
+          text((1/(2^(nChar+2)))*(4*strtoi(nodesBin[i+1], base = 2)+2), 
+               (depth-nChar)/(depth+1)+1/(depth+20), 
+               bquote(.(as.character(var[i]))<=.(cutpoint)),cex=1, col="blue")
+    		}
       }
     } else {
       if(nChar <= textDepth){
         effect.i <- round(as.numeric(effect[i]), digits=digits)
-        text((1/(2^(nChar+2)))*(4*strtoi(nodesBin[i], base = 2)+2),(depth-nChar)/(depth+1), 
+        text((1/(2^(nChar+2)))*(4*strtoi(nodesBin[i], base = 2)+2), (depth-nChar)/(depth+1), 
              paste("n=", size[i], sep=""),cex=1, offset=1, col="red")
-        text((1/(2^(nChar+2)))*(4*strtoi(nodesBin[i], base = 2)+2), (depth-nChar)/(depth+1)-0.025, 
-             paste("d=", effect.i, sep=""),cex=1, offset=1, col="red")
+        text((1/(2^(nChar+2)))*(4*strtoi(nodesBin[i], base = 2)+2), (depth-nChar)/(depth+1)-0.06, 
+		      paste("HR=", effect.i, sep=""), cex=1, offset=1, col="red")
       }
     }
   }
 }
+
 
 # EXAMPLE
 # plot.tree(tree0, cols.nominal=7, textDepth=5, lines="rectangle")
