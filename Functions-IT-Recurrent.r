@@ -10,6 +10,7 @@ library(survminer)
 library(coxme)
 library(ClusterBootstrap) # ALTERNATIVE WAY TO RE-SAMPLE WITH CLUSTERS
 library(xtable)
+library(readxl)  
 
 # ===============================================
 # FUNCTION rdat() GENERATES RECURRENT TIMES
@@ -144,8 +145,8 @@ control.coxph.0 <- coxph.control(eps =1e-03, toler.chol = 1.818989e-012,
 
 control.0 <- coxme.control(eps = 1e-08, toler.chol = 1.818989e-012,iter.max=5, refine.method="control")
                                                                                               
-# control.0<-coxme.control(eps = 1e-04, toler.chol = 1.818989e-012,iter.max=20, refine.method="control")                                                                                                                                                                
-# control.0<-coxme.control(eps = 1e-08, toler.chol = .Machine$double.eps^0.75,iter.max=20, 
+# control.0 <- coxme.control(eps = 1e-04, toler.chol = 1.818989e-012,iter.max=20, refine.method="control")                                                                                                                                                                
+# control.0 <- coxme.control(eps = 1e-08, toler.chol = .Machine$double.eps^0.75,iter.max=20, 
            # inner.iter = Quote(max(4, fit0$iter+1)),sparse.calc = NULL,optpar = list(method = "BFGS", 
             # control=list(reltol = 1e-5)),refine.df=4, refine.detail=FALSE, 
            #refine.method="control",sparse=c(50, .02),varinit=c(.02, .1, .4, .8)^2, corinit = c(0, .3))
@@ -158,8 +159,6 @@ control.0 <- coxme.control(eps = 1e-08, toler.chol = 1.818989e-012,iter.max=5, r
 split.stat <- function(dat, z, n0=2, method=NULL, strata=FALSE)
 # THREE CHOICES FOR method: c("lrt", "score", "wald"), WITH DEFAULT lrt
 {  
- # write.csv(dat,file="data_split_stat_coxph.csv")
-  #write.csv(z,"z1.csv")
   
     IDNUM<-dat$IDNUM;starttime <- dat$starttime;stoptime <- dat$stoptime;event <- dat$event; trt <- dat$trt; test.stat <- NA; n <- nrow(dat)
     
@@ -167,7 +166,6 @@ split.stat <- function(dat, z, n0=2, method=NULL, strata=FALSE)
     if (length(starttime)!=length(z)) stop("the vector z must have the same length as data.") 
     if (length(stoptime)!=length(z)) stop("the vector z must have the same length as data.") 
       
-    
     ## select the subset of data with at least 1 recurrent event for each id
     dat_new <- data.frame(cbind(dat,z))
     # print(dat_new)
