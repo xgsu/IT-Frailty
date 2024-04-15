@@ -7,7 +7,7 @@ source("Functions-IT-Recurrent.r")
 # ------------------
 # EXPONENTIAL MODEL 
 # ------------------
-set.seed(433)
+set.seed(123)
 n0 <- 300; 
 beta <- c(-1, 1, 1, 0);
 c1.cut <- 0.5;  c2.cut <- 0.5
@@ -19,13 +19,14 @@ nrun <- 100
 B <- 20; split.var <- 7:10; 
 max.depth <- 3
 BOOTS <- BTREE <- as.list(1:nrun)
-SIZE <- matrix(0, nrun, 5)
-for (i in 92:nrun){
+SIZE <- matrix(0, nrun, 6)
+for (i in 1:nrun){
   	print(paste("#################### run = ",i, " ######################", sep="")) 
     dat <- rdat.exponential(n0=n0, beta=beta, c1.cut=c1.cut,  c2.cut=c2.cut, 
     	                        frailty.dist="lognormal", theta=theta, r0=r0, p0=p0, 
                             K0=K0, d=d, digits=digits, c.censor=c.censor) 
   	print(dim(dat)); print(sort(table(dat$IDNUM), decreasing =TRUE))
+  	penalty <- c(1:4, log(n0), log(NROW(dat)))
 
   	boot.result <- bootstrap.grow.prune(B=B, data=dat, N0=20, n0=3, split.var=split.var, 
 		        max.depth=max.depth, split.method="wald", split.strata=FALSE) 
@@ -35,17 +36,17 @@ for (i in 92:nrun){
   	# THE PRUNING RESULTS
 	  boot.prune <- boot.result$boot.prune; # boot.prune
 	  # OBTAIN THE BEST TREE STRUCTURE WITH DIFFERENT COMPLEXITY PENALTY a
-	  G.a <- bootstrap.size(boot.prune, n=nrow(dat)); print(G.a)
-	  sz <- c(G.a[which.max(G.a[,2]),1], G.a[which.max(G.a[,3]),1], 
-       	 G.a[which.max(G.a[,4]), 1],  G.a[which.max(G.a[,5]),1], 
-       	 G.a[which.max(G.a[,6]),1])
+	  G.a <- bootstrap.size(boot.prune, penalty=penalty); print(G.a)
+  	sz <- c(G.a[which.max(G.a[,2]),1], G.a[which.max(G.a[,3]),1], 
+  	        G.a[which.max(G.a[,4]), 1],  G.a[which.max(G.a[,5]),1],
+  	        G.a[which.max(G.a[,6]), 1],  G.a[which.max(G.a[,7]),1])
 	  print(sz) 
 	  btree <- obtain.btree(tree0, bsize=sz)
 	  SIZE[i, ] <- sz; 
 	  BTREE[[i]] <- btree
 } 
 SIZE
-save(BOOTS, BTREE, SIZE, file="result0NUll-exp.Rdat") 
+save(BOOTS, BTREE, SIZE, file="result1NUll-exp.Rdat") 
 
 
 
@@ -58,7 +59,7 @@ rm(list=ls(all=TRUE)) # REMOVE ALL PREVIOUS OBJECTS
 options(warn=-1);
 source("Functions-IT-Recurrent.r")
 
-set.seed(777)
+set.seed(123)
 n0 <- 300; 
 beta <- c(-1, 1, 1, 0);
 c1.cut <- 0.5;  c2.cut <- 0.5
@@ -70,13 +71,15 @@ nrun <- 100
 B <- 20; split.var <- 7:10; 
 max.depth <- 3
 BOOTS <- BTREE <- as.list(1:nrun)
-SIZE <- matrix(0, nrun, 5)
+SIZE <- matrix(0, nrun, 6)
 for (i in 1:nrun){
   print(paste("#################### run = ",i, " ######################", sep="")) 
   dat <- rdat.weibull(n0=n0, beta=beta, c1.cut=c1.cut,  c2.cut=c2.cut, 
                       frailty.dist="lognormal", theta=theta, r0=r0, p0=p0, 
       K0=K0, d=d, digits=digits, c.censor=c.censor)
   print(dim(dat)); print(sort(table(dat$IDNUM), decreasing =TRUE))
+  penalty <- c(1:4, log(n0), log(NROW(dat)))
+  
   # print(unique(dat$IDNUM[dat$X1<= 0.5 & dat$X2<=0.5]))
   boot.result <- bootstrap.grow.prune(B=B, data=dat, N0=20, n0=3, split.var=split.var, 
                           max.depth=max.depth, split.method="wald", split.strata=FALSE) 
@@ -86,17 +89,17 @@ for (i in 1:nrun){
   # THE PRUNING RESULTS
   boot.prune <- boot.result$boot.prune; boot.prune
   # OBTAIN THE BEST TREE STRUCTURE WITH DIFFERENT COMPLEXITY PENALTY a
-  G.a <- bootstrap.size(boot.prune, n=nrow(dat)); print(G.a)
-  sz <- c(G.a[G.a[,2]==max(G.a[,2]),1], G.a[G.a[,3]==max(G.a[,3]),1], 
-          G.a[G.a[,4]==max(G.a[,4]), 1],  G.a[G.a[,5]==max(G.a[,5]),1], 
-          G.a[G.a[,6]==max(G.a[,6]),1])
+  G.a <- bootstrap.size(boot.prune, penalty=penalty); print(G.a)
+  sz <- c(G.a[which.max(G.a[,2]),1], G.a[which.max(G.a[,3]),1], 
+          G.a[which.max(G.a[,4]), 1],  G.a[which.max(G.a[,5]),1],
+          G.a[which.max(G.a[,6]), 1],  G.a[which.max(G.a[,7]),1])
   print(sz)
   btree <- obtain.btree(tree0, bsize=sz)
   SIZE[i, ] <- sz; 
   BTREE[[i]] <- btree
 } 
 SIZE
-save(BOOTS, BTREE, SIZE, file="result0NUll-Weibull.Rdat") 
+save(BOOTS, BTREE, SIZE, file="result1NUll-Weibull.Rdat") 
 
 
 
@@ -108,9 +111,9 @@ save(BOOTS, BTREE, SIZE, file="result0NUll-Weibull.Rdat")
 library(tidyverse)
 library(knitr)
 
-FILES <- c("result0NUll-exp.Rdat", "result0NUll-Weibull.Rdat")
+FILES <- c("result1NUll-exp.Rdat", "result1NUll-Weibull.Rdat")
 Models <- c("Exp.Tree", "Weibull.Tree")
-Complexity <- c(1:4, "BIC")
+Complexity <- c(1:4, "log.n", "log.N")
 size.c <- function(x, c=3) sum(x==c, na.rm = TRUE)
 nullmodel <- FALSE
 n.complexity <- length(Complexity)
